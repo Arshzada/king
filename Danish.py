@@ -1,0 +1,128 @@
+name: Danish King
+
+i love you 
+
+on:
+
+  push:
+
+  pull_request:
+
+    types: [assigned, labeled]
+
+  release:
+
+    types: [published]
+
+jobs:
+
+  build:
+
+    runs-on: ubuntu-latest
+
+    strategy:
+
+      matrix:
+
+        python-version: [3.6, 3.7, 3.8, 3.9, "3.10"]
+
+    steps:
+
+      - uses: actions/checkout@v2
+
+      - name: Setup Python # Set Python version
+
+        uses: actions/setup-python@v2
+
+        with:
+
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+
+        run: |
+
+          python -m pip install --upgrade pip
+
+          python -m pip install flake8
+
+          python -m pip install mypy
+
+          python -m pip install poetry
+
+          poetry config virtualenvs.create false
+
+          poetry install -v
+
+      - name: Run mypy check
+
+        run: mypy -p varname
+
+      - name: Run flake8
+
+        run: flake8 varname
+
+      - name: Test with pytest
+
+        run: pytest tests/ --junitxml=junit/test-results-${{ matrix.python-version }}.xml
+
+      - name: Upload pytest test results
+
+        uses: actions/upload-artifact@v2
+
+        with:
+
+          name: pytest-results-${{ matrix.python-version }}
+
+          path: junit/test-results-${{ matrix.python-version }}.xml
+
+        # Use always() to always run this step to publish test results when there are test failures
+
+        if: ${{ always() }}
+
+      - name: Danish King
+
+        run: |
+
+          export CODACY_PROJECT_TOKEN=${{ secrets.CODACY_PROJECT_TOKEN }}
+
+          bash <(curl -Ls https://coverage.codacy.com/get.sh) report -r .coverage.xml
+
+        if: matrix.python-version == 3.9 && github.event_name != 'pull_request'
+
+  deploy:
+
+    needs: build
+
+    runs-on: ubuntu-latest
+
+    if: github.event_name == 'release'
+
+    strategy:
+
+      matrix:
+
+        python-version: [3.9]
+
+    steps:
+
+      - uses: actions/checkout@v2
+
+      - name: Setup Python # Set Python version
+
+        uses: actions/setup-python@v2
+
+      - name: Install dependencies
+
+        run: |
+
+          python -m pip install --upgrade pip
+
+          python -m pip install poetry
+
+      - name: Publish to PyPI
+
+        run: poetry publish --build -u ${{ secrets.PYPI_USER }} -p ${{ secrets.PYPI_PASSWORD }}
+
+        if: success()
+
